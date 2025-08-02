@@ -1,0 +1,85 @@
+<!-- ============================================================================== -->
+<!-- File: templates/index.html                                                     -->
+<!-- Purpose: The HTML frontend for the web application.                            -->
+<!-- ============================================================================== -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dog Breed RAG Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #3498db;
+            border-radius: 50%; width: 30px; height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto max-w-3xl p-4 sm:p-6 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Dog Breed RAG Assistant</h1>
+            <p class="text-lg text-gray-600 mt-2">Ask me anything about dog breeds!</p>
+        </header>
+        <main>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <form id="qa-form">
+                    <div class="relative">
+                        <textarea id="question-input" rows="3" class="w-full p-4 pr-20 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="e.g., What's a good dog for an active family?"></textarea>
+                        <button type="submit" id="submit-button" class="absolute top-1/2 right-4 -translate-y-1/2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">Ask</button>
+                    </div>
+                </form>
+            </div>
+            <div id="response-container" class="mt-8 bg-white rounded-lg shadow-md p-6 hidden">
+                <div id="loader" class="mx-auto loader hidden"></div>
+                <h2 class="text-2xl font-bold mb-4">Answer:</h2>
+                <div id="answer" class="text-gray-700 leading-relaxed prose"></div>
+            </div>
+        </main>
+    </div>
+    <script>
+        const form = document.getElementById('qa-form');
+        const questionInput = document.getElementById('question-input');
+        const responseContainer = document.getElementById('response-container');
+        const answerDiv = document.getElementById('answer');
+        const loader = document.getElementById('loader');
+        const submitButton = document.getElementById('submit-button');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const question = questionInput.value.trim();
+            if (!question) return;
+
+            responseContainer.classList.remove('hidden');
+            answerDiv.classList.add('hidden');
+            loader.classList.remove('hidden');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Thinking...';
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ question: question }),
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                answerDiv.innerHTML = data.result.replace(/\n/g, '<br>');
+            } catch (error) {
+                console.error('Error:', error);
+                answerDiv.textContent = 'Sorry, something went wrong. Please try again.';
+            } finally {
+                loader.classList.add('hidden');
+                answerDiv.classList.remove('hidden');
+                submitButton.disabled = false;
+                submitButton.textContent = 'Ask';
+            }
+        });
+    </script>
+</body>
+</html>
