@@ -1,0 +1,12 @@
+flask
+pandas
+requests
+beautifulsoup4
+tqdm
+langchain
+langchain-community
+langchain-groq
+sentence-transformers
+chromadb
+torch
+python-dotenv
