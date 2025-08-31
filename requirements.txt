@@ -10,3 +10,4 @@ sentence-transformers
 chromadb
 torch
 python-dotenv
+gunicorn
