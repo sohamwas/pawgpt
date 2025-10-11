@@ -3,6 +3,10 @@
 ![Framework](https://img.shields.io/badge/Framework-Flask-red.svg)
 ![LangChain](https://img.shields.io/badge/LangChain-RAG-purple.svg)
 ![LLM](https://img.shields.io/badge/LLM-Groq%20(Llama%203.1)-green.svg)
+![UI](https://img.shields.io/badge/UI-Streamlit-orange.svg)
+![Database](https://img.shields.io/badge/VectorDB-ChromaDB-yellow.svg)
+![Embeddings](https://img.shields.io/badge/Embeddings-MiniLM-informational.svg)
+
 
 ![PawGPT Application Demo](demo/pawgpt_image.png)
 
@@ -15,7 +19,7 @@ PawGPT is an intelligent web application designed to help users find the perfect
 -   **Natural Language Queries**: Ask complex questions like, "What's a good, low-energy dog for a small apartment that doesn't bark a lot?"
 -   **Intelligent Retrieval**: Uses semantic search with a ChromaDB vector store to find the most relevant dog breeds from a comprehensive knowledge base.
 -   **AI-Generated Answers**: Leverages a Large Language Model (Llama 3.1) via the high-speed Groq API for fast, human-like responses.
--   **Simple Web Interface**: Built with Flask and Tailwind CSS for a clean and responsive user experience.
+-   **Simple Web Interface**: Built with Flask and Streamlit for a clean and responsive user experience.
 [PawGPT Sample Query](demo/pawgpt_recording.mp4)
 
 ---
