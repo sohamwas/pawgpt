@@ -1,9 +1,7 @@
 import os
 import streamlit as st
-import pandas as pd
-from langchain.docstore.document import Document
+from pinecone import Pinecone
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
 
 
@@ -12,57 +10,26 @@ st.set_page_config(page_title="PawGPT", page_icon="🐾", layout="wide")
 
 
 @st.cache_resource(show_spinner=True)
-def build_or_load_vectorstore():
-    persist_directory = 'db_chroma'
-    if not os.path.exists(persist_directory):
-        st.info("--- Step 1: Load Data from the Final CSV using Pandas ---")
-        file_path = 'data/dogs_final_for_rag.csv'
-        try:
-            df = pd.read_csv(file_path)
-            if 'Combined_Info' not in df.columns:
-                raise ValueError("'Combined_Info' column not found in the CSV.")
+def load_pinecone_index():
+    try:
+        pinecone_api_key = st.secrets["pinecone_api_key"]
+        pc = Pinecone(api_key=pinecone_api_key)
+        index = pc.Index("pawgpt-dog-breeds")
+        st.success("✅ Pinecone index connected successfully.")
+        return index
+    except Exception as e:
+        st.error(f"❌ Could not connect to Pinecone: {e}")
+        st.stop()
 
-            documents = []
-            for _, row in df.iterrows():
-                page_content = str(row.get('Combined_Info', ''))
-                metadata = row.to_dict()
-                metadata.pop('Combined_Info', None)
-                documents.append(Document(page_content=page_content, metadata=metadata))
 
-            st.success(f"✅ Successfully loaded and processed {len(documents)} documents using pandas.")
-
-        except FileNotFoundError:
-            st.error(f"❌ Error: '{file_path}' not found. Please make sure the file path is correct.")
-            st.stop()
-        except Exception as e:
-            st.error(f"❌ An error occurred: {e}")
-            st.stop()
-
-        st.info("\n--- Step 2: Initialize the Embedding Model ---")
-        model_name = 'all-MiniLM-L6-v2'
-        model_kwargs = {'device': 'cpu'}
-        encode_kwargs = {'normalize_embeddings': False}
-        embeddings_model = HuggingFaceEmbeddings(
-            model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
-        )
-        st.success(f"✅ Embedding model '{model_name}' is ready.")
-
-        st.info("\n--- Step 3: Create and Persist the Vector Store ---")
-        vector_store = Chroma.from_documents(
-            documents=documents,
-            embedding=embeddings_model,
-            persist_directory=persist_directory
-        )
-        vector_store.persist()
-        st.success(f"✅ Successfully created and populated the ChromaDB vector store.")
-        st.write(f"Total documents in store: {vector_store._collection.count()}")
-        st.write(f"The database has been saved to the '{persist_directory}' directory.")
-    else:
-        embeddings_model = HuggingFaceEmbeddings(model_name='all-MiniLM-L6-v2')
-        vector_store = Chroma(persist_directory=persist_directory, embedding_function=embeddings_model)
-        st.success("✅ Vector store loaded from persistence.")
-
-    return vector_store
+@st.cache_resource(show_spinner=True)
+def load_embeddings():
+    embeddings_model = HuggingFaceEmbeddings(
+        model_name="all-MiniLM-L6-v2", 
+        model_kwargs={'device': 'cpu'}
+    )
+    st.success("✅ Embedding model loaded.")
+    return embeddings_model
 
 
 @st.cache_resource(show_spinner=True)
@@ -78,27 +45,30 @@ def load_llm():
         st.stop()
 
 
-def general_purpose_rag(query, vector_store, llm, max_docs=5, max_context_chars=2500):
+def query_pinecone_rag(query, index, embeddings_model, llm, top_k=5):
     try:
-        docs = vector_store.similarity_search(query, k=max_docs)
-        if not docs:
-            return "I couldn't find relevant info. The database might be empty or no matches found."
-
+        # Generate query embedding
+        query_vector = embeddings_model.embed_query(query)
+        
+        # Query Pinecone
+        results = index.query(vector=query_vector, top_k=top_k, include_metadata=True)
+        
+        if not results['matches']:
+            return "I couldn't find relevant information. Please try rephrasing your question."
+        
+        # Build context from retrieved documents
         combined_context = ""
-        for doc in docs:
-            doc_content = doc.page_content.strip()
-            if len(combined_context) + len(doc_content) < max_context_chars:
-                combined_context += doc_content + "\n\n"
-            else:
-                remaining_chars = max_context_chars - len(combined_context)
-                if remaining_chars > 100:
-                    combined_context += doc_content[:remaining_chars-10] + "...\n\n"
-                break
-
+        for match in results['matches']:
+            metadata = match.get('metadata', {})
+            # Reconstruct document text from metadata or use specific fields
+            doc_text = str(metadata)  # You can customize based on your metadata structure
+            combined_context += doc_text + "\n\n"
+        
         if not combined_context.strip():
-            return "Found documents appear to be empty."
-
-        prompt_template = """You are a helpful assistant answering questions based on the provided information.
+            return "Found documents but they appear to be empty."
+        
+        # Create prompt for LLM
+        prompt_template = """You are a helpful assistant answering questions about dog breeds based on the provided information.
 
 Information:
 {context}
@@ -106,17 +76,17 @@ Information:
 Question: {question}
 
 Instructions:
-- Use only the information above
+- Use only the information provided above
 - Answer specifically and helpfully
-- If info is insufficient, say "I don't have enough information to answer based on available data"
-- Do not make up info
+- If information is insufficient, say "I don't have enough information to answer based on available data"
+- Do not make up information
 
 Answer:"""
-
+        
         formatted_prompt = prompt_template.format(context=combined_context.strip(), question=query)
         response = llm.invoke(formatted_prompt)
         return response.content
-
+        
     except Exception as e:
         return f"Error processing your question: {str(e)}"
 
@@ -130,6 +100,7 @@ st.sidebar.markdown(
     Features:
     - Personalized breed recommendations
     - Powered by Retrieval-Augmented Generation (RAG)
+    - Vector database hosted on Pinecone
     """
 )
 if st.sidebar.button("Clear Chat History"):
@@ -142,8 +113,9 @@ if not st.session_state.messages:
     st.markdown("<h2 style='text-align: center; color:#8e43ed;'>🐾 Paws up! How can I assist you today?</h2>", unsafe_allow_html=True)
 
 
-# Load vector store and LLM
-vector_store = build_or_load_vectorstore()
+# Load resources
+pinecone_index = load_pinecone_index()
+embeddings_model = load_embeddings()
 llm = load_llm()
 
 # Display chat messages
@@ -159,7 +131,7 @@ if user_input:
         st.markdown(user_input)
 
     with st.spinner("PawGPT is thinking..."):
-        answer = general_purpose_rag(user_input, vector_store, llm)
+        answer = query_pinecone_rag(user_input, pinecone_index, embeddings_model, llm)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
     with st.chat_message("assistant", avatar="🐾"):
