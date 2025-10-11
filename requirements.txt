@@ -1,13 +1,7 @@
-flask
-pandas
-requests
-beautifulsoup4
-tqdm
+streamlit
+pinecone-client
 langchain
 langchain-community
 langchain-groq
 sentence-transformers
-chromadb
-torch
-python-dotenv
-gunicorn
+pandas
