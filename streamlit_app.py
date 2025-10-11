@@ -9,36 +9,36 @@ from langchain_groq import ChatGroq
 st.set_page_config(page_title="PawGPT", page_icon="🐾", layout="wide")
 
 
-@st.cache_resource(show_spinner=True)
+@st.cache_resource(show_spinner=False)  # Changed to False to hide spinner
 def load_pinecone_index():
     try:
         pinecone_api_key = st.secrets["pinecone_api_key"]
         pc = Pinecone(api_key=pinecone_api_key)
         index = pc.Index("pawgpt")
-        st.success("✅ Pinecone index connected successfully.")
+        # Removed st.success() message
         return index
     except Exception as e:
         st.error(f"❌ Could not connect to Pinecone: {e}")
         st.stop()
 
 
-@st.cache_resource(show_spinner=True)
+@st.cache_resource(show_spinner=False)  # Changed to False to hide spinner
 def load_embeddings():
     embeddings_model = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2", 
         model_kwargs={'device': 'cpu'}
     )
-    st.success("✅ Embedding model loaded.")
+    # Removed st.success() message
     return embeddings_model
 
 
-@st.cache_resource(show_spinner=True)
+@st.cache_resource(show_spinner=False)  # Changed to False to hide spinner
 def load_llm():
     try:
         groq_api_key = st.secrets["groq_api_key"]
         os.environ["GROQ_API_KEY"] = groq_api_key
         llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0, max_tokens=800)
-        st.success("✅ LLM is ready via Groq API.")
+        # Removed st.success() message
         return llm
     except Exception as e:
         st.error(f"❌ Could not set up ChatGroq: {e}")
@@ -60,8 +60,7 @@ def query_pinecone_rag(query, index, embeddings_model, llm, top_k=5):
         combined_context = ""
         for match in results['matches']:
             metadata = match.get('metadata', {})
-            # Reconstruct document text from metadata or use specific fields
-            doc_text = str(metadata)  # You can customize based on your metadata structure
+            doc_text = str(metadata)
             combined_context += doc_text + "\n\n"
         
         if not combined_context.strip():
@@ -113,7 +112,7 @@ if not st.session_state.messages:
     st.markdown("<h2 style='text-align: center; color:#8e43ed;'>🐾 Paws up! How can I assist you today?</h2>", unsafe_allow_html=True)
 
 
-# Load resources
+# Load resources (messages removed)
 pinecone_index = load_pinecone_index()
 embeddings_model = load_embeddings()
 llm = load_llm()
@@ -149,4 +148,3 @@ with st.sidebar:
             file_name="pawgpt_chat_history.txt",
             mime="text/plain"
         )
-
