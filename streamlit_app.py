@@ -27,6 +27,12 @@ with st.sidebar:
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
+if not st.session_state["messages"]:
+    st.markdown(
+        "<h2 style='text-align: center; color:#8e43ed;'>🐾 Paws up! How can I assist you today?</h2>",
+        unsafe_allow_html=True
+    )
+
 # Display the chat messages from history on the page
 for msg in st.session_state["messages"]:
     with st.chat_message(msg["role"], avatar="🙂" if msg["role"] == "user" else "🐾"):
