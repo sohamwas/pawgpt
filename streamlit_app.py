@@ -14,7 +14,7 @@ def load_pinecone_index():
     try:
         pinecone_api_key = st.secrets["pinecone_api_key"]
         pc = Pinecone(api_key=pinecone_api_key)
-        index = pc.Index("pawgpt-dog-breeds")
+        index = pc.Index("pawgpt")
         st.success("✅ Pinecone index connected successfully.")
         return index
     except Exception as e:
@@ -149,3 +149,4 @@ with st.sidebar:
             file_name="pawgpt_chat_history.txt",
             mime="text/plain"
         )
+
