@@ -22,7 +22,7 @@ PawGPT is an intelligent web application designed to help users find the perfect
 -   **Cloud-Hosted Vector Database**: Uses Pinecone for scalable, serverless vector storage and retrieval.
 -   **Chat History**: Download your conversation history for future reference.
 
-[PawGPT Sample Query](demo/pawgpt_recording.mp4)
+https://github.com/user-attachments/assets/b0a01fa5-fde1-4a34-b913-5f552ed38f76
 
 ---
 
