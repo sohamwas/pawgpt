@@ -1,40 +1,81 @@
-import streamlit as st
 import os
-from langchain_community.vectorstores import Chroma
+import streamlit as st
+import pandas as pd
+from langchain.docstore.document import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
 
 
+# Page config
 st.set_page_config(page_title="PawGPT", page_icon="🐾", layout="wide")
 
 
 @st.cache_resource(show_spinner=True)
-def load_models():
-    vector_store = None
-    llm = None
+def build_or_load_vectorstore():
+    persist_directory = 'db_chroma'
+    if not os.path.exists(persist_directory):
+        st.info("--- Step 1: Load Data from the Final CSV using Pandas ---")
+        file_path = 'data/dogs_final_for_rag.csv'
+        try:
+            df = pd.read_csv(file_path)
+            if 'Combined_Info' not in df.columns:
+                raise ValueError("'Combined_Info' column not found in the CSV.")
 
-    try:
-        embeddings_model = HuggingFaceEmbeddings(model_name='all-MiniLM-L6-v2', model_kwargs={'device': 'cpu'})
-        vector_store = Chroma(persist_directory='db_chroma', embedding_function=embeddings_model)
+            documents = []
+            for _, row in df.iterrows():
+                page_content = str(row.get('Combined_Info', ''))
+                metadata = row.to_dict()
+                metadata.pop('Combined_Info', None)
+                documents.append(Document(page_content=page_content, metadata=metadata))
 
-        doc_count = len(vector_store.get()['ids'])
-        st.write(f"✅ Vector store loaded with {doc_count} documents.")
-        if doc_count == 0:
-            st.warning("⚠️ Vector store is empty! No documents found.")
-    except Exception as e:
-        st.error(f"❌ Could not load vector store: {e}")
-        st.stop()
+            st.success(f"✅ Successfully loaded and processed {len(documents)} documents using pandas.")
 
+        except FileNotFoundError:
+            st.error(f"❌ Error: '{file_path}' not found. Please make sure the file path is correct.")
+            st.stop()
+        except Exception as e:
+            st.error(f"❌ An error occurred: {e}")
+            st.stop()
+
+        st.info("\n--- Step 2: Initialize the Embedding Model ---")
+        model_name = 'all-MiniLM-L6-v2'
+        model_kwargs = {'device': 'cpu'}
+        encode_kwargs = {'normalize_embeddings': False}
+        embeddings_model = HuggingFaceEmbeddings(
+            model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
+        )
+        st.success(f"✅ Embedding model '{model_name}' is ready.")
+
+        st.info("\n--- Step 3: Create and Persist the Vector Store ---")
+        vector_store = Chroma.from_documents(
+            documents=documents,
+            embedding=embeddings_model,
+            persist_directory=persist_directory
+        )
+        vector_store.persist()
+        st.success(f"✅ Successfully created and populated the ChromaDB vector store.")
+        st.write(f"Total documents in store: {vector_store._collection.count()}")
+        st.write(f"The database has been saved to the '{persist_directory}' directory.")
+    else:
+        embeddings_model = HuggingFaceEmbeddings(model_name='all-MiniLM-L6-v2')
+        vector_store = Chroma(persist_directory=persist_directory, embedding_function=embeddings_model)
+        st.success("✅ Vector store loaded from persistence.")
+
+    return vector_store
+
+
+@st.cache_resource(show_spinner=True)
+def load_llm():
     try:
         groq_api_key = st.secrets["groq_api_key"]
         os.environ["GROQ_API_KEY"] = groq_api_key
         llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0, max_tokens=800)
-        st.write("✅ LLM is ready via Groq API.")
+        st.success("✅ LLM is ready via Groq API.")
+        return llm
     except Exception as e:
         st.error(f"❌ Could not set up ChatGroq: {e}")
         st.stop()
-
-    return vector_store, llm
 
 
 def general_purpose_rag(query, vector_store, llm, max_docs=5, max_context_chars=2500):
@@ -80,6 +121,7 @@ Answer:"""
         return f"Error processing your question: {str(e)}"
 
 
+# Sidebar UI
 st.sidebar.header("🐾 PawGPT")
 st.sidebar.markdown(
     """
@@ -99,8 +141,12 @@ if "messages" not in st.session_state:
 if not st.session_state.messages:
     st.markdown("<h2 style='text-align: center; color:#8e43ed;'>🐾 Paws up! How can I assist you today?</h2>", unsafe_allow_html=True)
 
-vector_store, llm = load_models()
 
+# Load vector store and LLM
+vector_store = build_or_load_vectorstore()
+llm = load_llm()
+
+# Display chat messages
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar="🙂" if msg["role"] == "user" else "🐾"):
         st.markdown(msg["content"])
@@ -121,6 +167,7 @@ if user_input:
 
 st.divider()
 
+# Download chat history
 with st.sidebar:
     if st.button("Download Chat History"):
         chat_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages])
