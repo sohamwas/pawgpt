@@ -48,10 +48,8 @@ pawgpt/
 ├── LICENSE                    # MIT license
 ├── requirements.txt           # Pinned Python dependencies
 ├── .gitignore                 # Keeps secrets and local artifacts out of git
+├── .env.example               # Template for API keys (copy to .env)
 ├── streamlit_app.py           # Main Streamlit application file
-│
-├── .streamlit/
-│   └── secrets.toml.example   # Template for local API keys (copy to secrets.toml)
 │
 ├── .devcontainer/
 │   └── devcontainer.json      # GitHub Codespaces / VS Code dev container
@@ -102,22 +100,27 @@ pip install -r requirements.txt
 **Step C: Configure Your API Keys**
 Copy the template and fill in your own keys:
 ```bash
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+cp .env.example .env
 ```
-`.streamlit/secrets.toml` is gitignored. The app reads two keys, `pinecone_api_key`
-and `groq_api_key`, and also accepts them as the environment variables
-`PINECONE_API_KEY` and `GROQ_API_KEY` — use the environment variables when deploying
-to a host that has no secrets file.
+```ini
+PINECONE_API_KEY=your-pinecone-api-key
+GROQ_API_KEY=your-groq-api-key
+```
+`.env` is gitignored — never commit it. Both the app and the population script load
+it from the repo root, so they work from any working directory.
+
+When deploying, don't ship the `.env` file: set `PINECONE_API_KEY` and
+`GROQ_API_KEY` as environment variables in your host's dashboard. Real environment
+variables take precedence over `.env`.
 
 ### 3. How to Run the Application
 
 The application requires a one-time setup to populate the Pinecone vector database, followed by running the Streamlit app.
 
 **Step A: Populate Pinecone Vector Database (One-Time Only)**
-Run the script to upload your dog breed embeddings to Pinecone. The script reads your
-key from the environment:
+Run the script to upload your dog breed embeddings to Pinecone. It picks up
+`PINECONE_API_KEY` from the `.env` you created in Step C:
 ```bash
-export PINECONE_API_KEY="your-pinecone-api-key"   # PowerShell: $env:PINECONE_API_KEY="..."
 python scripts/pinecone_db.py
 ```
 
@@ -142,11 +145,15 @@ The application will automatically open in your default web browser. You can now
 
 This app is deployed on **Streamlit Community Cloud**. To deploy your own version:
 
-1. Push your code to a GitHub repository (make sure `.streamlit/secrets.toml` is in `.gitignore`).
+1. Push your code to a GitHub repository. `.env` is gitignored, so your keys stay local.
 2. Go to [Streamlit Community Cloud](https://streamlit.io/cloud).
 3. Connect your GitHub repository.
-4. Add your API keys in the Streamlit Cloud secrets management (Settings → Secrets).
+4. Add `PINECONE_API_KEY` and `GROQ_API_KEY` under Settings → Secrets.
 5. Deploy!
+
+The same two environment variables are all that's needed on any other host
+(Render, Fly, Railway, a container, etc.) — set them in the platform's
+environment/secrets panel rather than uploading a `.env` file.
 
 ---
 

@@ -1,6 +1,8 @@
 # --- Secrets: never commit API keys ---
-.streamlit/secrets.toml
+# .env holds the real keys; .env.example is the tracked template.
 .env
+!.env.example
+.streamlit/secrets.toml
 *.key
 groq_api_key.txt
 

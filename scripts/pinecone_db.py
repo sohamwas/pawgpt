@@ -2,7 +2,7 @@
 Populate the Pinecone index with dog-breed embeddings. One-time setup.
 
 Usage (from anywhere):
-    export PINECONE_API_KEY="your-key"     # PowerShell: $env:PINECONE_API_KEY="your-key"
+    cp .env.example .env    # then fill in PINECONE_API_KEY
     python scripts/pinecone_db.py
 """
 import os
@@ -10,16 +10,22 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from dotenv import load_dotenv
 from pinecone import Pinecone, ServerlessSpec
 from langchain_community.embeddings import HuggingFaceEmbeddings
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Load .env from the repo root; real environment variables take precedence.
+load_dotenv(REPO_ROOT / ".env", override=False)
 
 # Read the key from the environment so this file never holds a secret.
 api_key = os.environ.get("PINECONE_API_KEY")
 if not api_key:
     sys.exit(
         "❌ PINECONE_API_KEY is not set.\n"
-        "   Get a key at https://app.pinecone.io and export it before running:\n"
-        '     export PINECONE_API_KEY="your-key"'
+        "   Get a key at https://app.pinecone.io, then either add it to .env\n"
+        "   (copy .env.example to .env) or export it before running."
     )
 
 pc = Pinecone(api_key=api_key)
@@ -42,7 +48,7 @@ if not pc.has_index(index_name):
 index = pc.Index(index_name)
 
 # Resolve the CSV relative to the repo root, so the script works from any cwd.
-csv_path = Path(__file__).resolve().parent.parent / "data" / "dogs_final_for_rag.csv"
+csv_path = REPO_ROOT / "data" / "dogs_final_for_rag.csv"
 if not csv_path.exists():
     sys.exit(f"❌ Dataset not found at {csv_path}")
 
