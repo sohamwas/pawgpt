@@ -1,0 +1,30 @@
+# --- Secrets: never commit API keys ---
+.streamlit/secrets.toml
+.env
+*.key
+groq_api_key.txt
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- Local-only legacy stack (pre-Pinecone Flask + ChromaDB prototype) ---
+# Kept on disk for reference; deliberately not part of this repo.
+app.py
+vector_db.py
+templates/
+db_chroma/
+
+# --- Large local media not tracked in demo/ ---
+pawgpt_recording.mp4
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
