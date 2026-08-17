@@ -81,29 +81,50 @@ def load_llm():
         st.stop()
 
 
-def query_pinecone_rag(query, index, embeddings_model, llm, top_k=5):
+def query_pinecone_rag(query, index, embeddings_model, llm, top_k=8, max_context_chars=6000):
     try:
         # Generate query embedding
         query_vector = embeddings_model.embed_query(query)
-        
+
         # Query Pinecone
         results = index.query(vector=query_vector, top_k=top_k, include_metadata=True)
-        
-        if not results['matches']:
+
+        matches = results.get('matches', [])
+        if not matches:
             return "I couldn't find relevant information. Please try rephrasing your question."
-        
-        # Build context from retrieved documents
-        combined_context = ""
-        for match in results['matches']:
-            metadata = match.get('metadata', {})
-            doc_text = str(metadata)
-            combined_context += doc_text + "\n\n"
-        
-        if not combined_context.strip():
-            return "Found documents but they appear to be empty."
-        
+
+        # Build context from the retrieved chunk text. Each vector stores the
+        # exact passage it was embedded from, so the model reads the same words
+        # the search matched on. Earlier this used str(metadata), which handed
+        # the LLM a stringified attribute dict instead of the breed description.
+        blocks = []
+        used_chars = 0
+        for match in matches:
+            metadata = match.get('metadata') or {}
+            chunk_text = (metadata.get('text') or "").strip()
+            if not chunk_text:
+                continue
+            breed = metadata.get('breed_name', 'Unknown breed')
+            block = f"[{breed}]\n{chunk_text}"
+            if used_chars + len(block) > max_context_chars:
+                break
+            blocks.append(block)
+            used_chars += len(block)
+
+        if not blocks:
+            return (
+                "The index returned matches with no stored text. This usually means "
+                "the index still holds vectors from before chunking was added — "
+                "re-run `python scripts/pinecone_db.py` to rebuild it."
+            )
+
+        combined_context = "\n\n".join(blocks)
+
         # Create prompt for LLM
         prompt_template = """You are a helpful assistant answering questions about dog breeds based on the provided information.
+
+Each passage below is labelled with the breed it describes, in square brackets.
+Passages from different breeds may appear together.
 
 Information:
 {context}
@@ -112,6 +133,7 @@ Question: {question}
 
 Instructions:
 - Use only the information provided above
+- Name the breed you are describing, and only attribute a fact to the breed whose passage it came from
 - Answer specifically and helpfully
 - If information is insufficient, say "I don't have enough information to answer based on available data"
 - Do not make up information

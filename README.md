@@ -45,6 +45,7 @@ The repository is organized to separate data preparation scripts from the main a
 pawgpt/
 │
 ├── README.md                  # Project overview and usage instructions
+├── ENGINEERING_NOTES.md       # Problems found in this project and how they were fixed
 ├── LICENSE                    # MIT license
 ├── requirements.txt           # Pinned Python dependencies
 ├── .gitignore                 # Keeps secrets and local artifacts out of git
@@ -134,8 +135,12 @@ python scripts/pinecone_db.py
 ```
 
 This creates a serverless index called `pawgpt` (384 dimensions, cosine metric, AWS
-`us-east-1`) in your Pinecone account and uploads all 391 breed vectors. You only need
-to do this once. Expect it to take a few minutes — the embedding model runs on CPU.
+`us-east-1`) in your Pinecone account. Each breed description is split into ~220-token
+chunks, so 391 breeds produce roughly **27,000 vectors**. Expect this to take a while —
+the embedding model runs on CPU.
+
+Re-run this script whenever the dataset or the chunking settings change; it clears the
+index first, so it is safe to run repeatedly.
 
 **Step B: Start the Streamlit Application**
 Now, run the main Streamlit application.
@@ -169,10 +174,13 @@ environment/secrets panel rather than uploading a `.env` file.
 ## 💡 Limitations
 
 - The web application UI can be further improved with more responsive design and custom styling.
-- Occasionally, the assistant may respond with "Not Enough Information," which could be improved with better retrieval strategies or data enrichment. Two known causes are documented below.
-- **Embedding truncation**: `Combined_Info` averages ~65,000 characters per breed, but `all-MiniLM-L6-v2` has a hard `max_seq_length` of 256 tokens. Measured on the first row (`Afador`): the document tokenizes to 12,660 tokens, of which only 256 are embedded — **2.0%**. Every breed's vector is built from the opening fragment of its document. Chunking each breed into several vectors would use the full text.
-- **Retrieved context excludes the embedded text**: `scripts/pinecone_db.py` drops `Combined_Info` from the metadata before upserting, so the app builds its prompt from the stringified attribute dictionary (~1.2 KB per breed) and never sees the rich description it searched against.
+- Retrieval quality is bounded by `all-MiniLM-L6-v2`, a small, fast embedding model. A larger model would rank passages better at the cost of slower indexing.
+- Much of each breed's description is generic advice shared across breeds (health screening, choosing a breeder). Those chunks can surface for questions where a breed-specific passage would be more useful. Filtering boilerplate at ingest time would sharpen results.
 - `langchain_community.embeddings.HuggingFaceEmbeddings` is deprecated upstream in favour of the `langchain-huggingface` package. It still works on the pinned versions, but will need migrating before a future major upgrade.
+
+Two earlier limitations — embedding truncation and the retrieved context excluding the
+embedded text — have been fixed. See [ENGINEERING_NOTES.md](ENGINEERING_NOTES.md) for the
+full write-up.
 
 ---
 
