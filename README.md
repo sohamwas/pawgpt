@@ -176,7 +176,7 @@ environment/secrets panel rather than uploading a `.env` file.
 - The web application UI can be further improved with more responsive design and custom styling.
 - Retrieval quality is bounded by `all-MiniLM-L6-v2`, a small, fast embedding model. A larger model would rank passages better at the cost of slower indexing.
 - Much of each breed's description is generic advice shared across breeds (health screening, choosing a breeder). Those chunks can surface for questions where a breed-specific passage would be more useful. Filtering boilerplate at ingest time would sharpen results.
-- `langchain_community.embeddings.HuggingFaceEmbeddings` is deprecated upstream in favour of the `langchain-huggingface` package. It still works on the pinned versions, but will need migrating before a future major upgrade.
+- `langchain-community` is **being sunset** upstream and is no longer actively maintained, and `HuggingFaceEmbeddings` within it is deprecated in favour of the standalone `langchain-huggingface` package. Both still work on the pinned versions — the library emits warnings but functions correctly — so this is not urgent, but it is the next dependency change worth making.
 
 Two earlier limitations — embedding truncation and the retrieved context excluding the
 embedded text — have been fixed. See [ENGINEERING_NOTES.md](ENGINEERING_NOTES.md) for the
