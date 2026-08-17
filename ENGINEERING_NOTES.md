@@ -223,17 +223,57 @@ quality requires rebuilding the index — see Status.
 
 ## Status
 
-**Fixed and verified in code.** Both bugs are corrected and the chunking configuration
-is confirmed against the real tokenizer.
+**Both fixes are live.** The index was rebuilt on 2026-08-17:
 
-**Not yet live.** The fixes take effect only after re-running:
-
-```bash
-python scripts/pinecone_db.py
+```
+391 breeds -> 25,134 chunks (~64 per breed)
+Uploaded 25,134 chunks to 'pawgpt'
+DescribeIndexStatsResponse(dimension=384, total_vector_count=25134,
+                           metric='cosine', namespaces=1)
 ```
 
-Until then the deployed app still queries the old one-vector-per-breed index. It will
-say so explicitly rather than degrading quietly.
+Confirmed by querying the live index. The decisive evidence for fix #1 is *where*
+the matches come from — under the old pipeline only the opening ~2% of each document
+was searchable at all, so anything past roughly chunk 1 was unreachable:
+
+```
+QUERY: which breeds need the least grooming and shed very little
+  score=0.754  Aussiepom             chunk 28/67
+  score=0.752  Australian Retriever  chunk 28/66
+
+QUERY: what health screenings are recommended for hip dysplasia
+  score=0.531  German Shepherd Dog   chunk 69/80
+  score=0.485  Shepsky               chunk 62/69   "...common health problems
+                                                    include: Hip Dysplasia..."
+
+[PASS] all matches carry non-empty text
+[PASS] matches from beyond chunk 0: 4/4 (deepest chunk_index=69)
+```
+
+A chunk 69 of 80 sits ~86% of the way through its document — content that was
+previously invisible to search. And every match carries real prose in
+`metadata['text']`, which is fix #2 working.
+
+### What this surfaced next
+
+The rebuild also made the boilerplate problem concrete. For the grooming query, four
+different breeds returned **near-identical text** at the same chunk index:
+
+```
+Aussiepom            chunk 28: "with short coats or those that shed minimally
+Australian Retriever chunk 28:  often fall into the category of easy-to-groom
+Docker               chunk 28:  dogs. Of course there are exceptions to this..."
+Labernese            chunk 28:
+```
+
+That passage is generic advice repeated across all 391 breeds, not a fact about any
+of them. It consumes four of eight retrieval slots and answers nothing. Scores on the
+health query were also noticeably lower (0.48–0.53 versus 0.77–0.79 for the
+apartment query), with several off-topic matches.
+
+So retrieval is now correct but not yet *good*. The next improvement is de-duplicating
+shared boilerplate at ingest time so breed-specific passages stop competing with text
+every breed shares.
 
 ---
 
