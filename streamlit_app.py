@@ -9,10 +9,32 @@ from langchain_groq import ChatGroq
 st.set_page_config(page_title="PawGPT", page_icon="🐾", layout="wide")
 
 
+def get_secret(name):
+    """Look up a credential in the environment first, then Streamlit secrets.
+
+    Environment variables (PINECONE_API_KEY / GROQ_API_KEY) let the app run on
+    hosts without a secrets.toml; st.secrets covers Streamlit Community Cloud.
+    """
+    env_value = os.environ.get(name.upper())
+    if env_value:
+        return env_value
+    try:
+        return st.secrets[name]
+    except Exception:
+        return None
+
+
 @st.cache_resource(show_spinner=False)  # Changed to False to hide spinner
 def load_pinecone_index():
     try:
-        pinecone_api_key = st.secrets["pinecone_api_key"]
+        pinecone_api_key = get_secret("pinecone_api_key")
+        if not pinecone_api_key:
+            st.error(
+                "❌ Missing Pinecone key. Set PINECONE_API_KEY, or add "
+                "`pinecone_api_key` to .streamlit/secrets.toml "
+                "(see .streamlit/secrets.toml.example)."
+            )
+            st.stop()
         pc = Pinecone(api_key=pinecone_api_key)
         index = pc.Index("pawgpt")
         # Removed st.success() message
@@ -35,7 +57,14 @@ def load_embeddings():
 @st.cache_resource(show_spinner=False)  # Changed to False to hide spinner
 def load_llm():
     try:
-        groq_api_key = st.secrets["groq_api_key"]
+        groq_api_key = get_secret("groq_api_key")
+        if not groq_api_key:
+            st.error(
+                "❌ Missing Groq key. Set GROQ_API_KEY, or add "
+                "`groq_api_key` to .streamlit/secrets.toml "
+                "(see .streamlit/secrets.toml.example)."
+            )
+            st.stop()
         os.environ["GROQ_API_KEY"] = groq_api_key
         llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0, max_tokens=800)
         # Removed st.success() message
