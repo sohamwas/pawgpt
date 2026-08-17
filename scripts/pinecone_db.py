@@ -18,7 +18,7 @@ from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 from pinecone import Pinecone, ServerlessSpec
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from transformers import AutoTokenizer
 

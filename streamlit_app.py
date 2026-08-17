@@ -4,7 +4,7 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 from pinecone import Pinecone
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 
 

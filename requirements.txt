@@ -2,12 +2,14 @@
 # Resolved together with pip on Python 3.13 (2026-08-17); also valid for Python 3.9+.
 # To refresh: pip install --dry-run --report - <unpinned names>
 #
-# Note: the top-level `langchain` meta-package was removed - nothing in this
-# repo imports it. Only langchain-community and langchain-groq are used.
+# Note: the top-level `langchain` meta-package was removed - nothing here
+# imports it. langchain-community was dropped too: it is being sunset upstream,
+# and its only use was HuggingFaceEmbeddings, now imported from the maintained
+# standalone langchain-huggingface package.
 
 streamlit==1.61.1
 pinecone==9.1.0
-langchain-community==0.4.2
+langchain-huggingface==1.2.2
 langchain-groq==1.1.3
 langchain-text-splitters==1.1.2
 sentence-transformers==5.7.0
