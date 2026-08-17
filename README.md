@@ -78,6 +78,15 @@ Follow these instructions to set up and run the project locally.
 -   A Groq API key ([Get one here](https://console.groq.com/keys))
 -   A Pinecone API key ([Get one here](https://www.pinecone.io/))
 
+> **Windows users:** `sentence-transformers` installs PyTorch, whose bundled CUDA
+> headers sit very close to the legacy 260-character `MAX_PATH` limit. Create your
+> virtual environment *inside* the project folder (`.venv`, already gitignored)
+> rather than in a deeply nested directory, or `pip install` may fail with
+> `OSError: [Errno 2] No such file or directory: ...predicated_tile_access_iterator_residual_last.h`.
+> Enabling long paths avoids the problem entirely — in an **admin** PowerShell:
+> `Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" LongPathsEnabled 1`
+> (requires a reboot).
+
 ### 2. Setup and Installation
 
 **Step A: Clone the Repository**
@@ -161,7 +170,7 @@ environment/secrets panel rather than uploading a `.env` file.
 
 - The web application UI can be further improved with more responsive design and custom styling.
 - Occasionally, the assistant may respond with "Not Enough Information," which could be improved with better retrieval strategies or data enrichment. Two known causes are documented below.
-- **Embedding truncation**: `Combined_Info` averages ~65,000 characters per breed, but `all-MiniLM-L6-v2` truncates input at 256 tokens (roughly 1,000 characters). Each breed's vector is therefore built from only the opening fragment of its document. Chunking each breed into multiple vectors would use the full text.
+- **Embedding truncation**: `Combined_Info` averages ~65,000 characters per breed, but `all-MiniLM-L6-v2` has a hard `max_seq_length` of 256 tokens. Measured on the first row (`Afador`): the document tokenizes to 12,660 tokens, of which only 256 are embedded — **2.0%**. Every breed's vector is built from the opening fragment of its document. Chunking each breed into several vectors would use the full text.
 - **Retrieved context excludes the embedded text**: `scripts/pinecone_db.py` drops `Combined_Info` from the metadata before upserting, so the app builds its prompt from the stringified attribute dictionary (~1.2 KB per breed) and never sees the rich description it searched against.
 - `langchain_community.embeddings.HuggingFaceEmbeddings` is deprecated upstream in favour of the `langchain-huggingface` package. It still works on the pinned versions, but will need migrating before a future major upgrade.
 
