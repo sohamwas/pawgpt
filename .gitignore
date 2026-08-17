@@ -16,13 +16,15 @@ env/
 
 # --- Local-only legacy stack (pre-Pinecone Flask + ChromaDB prototype) ---
 # Kept on disk for reference; deliberately not part of this repo.
-app.py
-vector_db.py
-templates/
-db_chroma/
+# Anchored with a leading slash so these only match at the repo root - an
+# unanchored "app.py" would silently ignore any file of that name anywhere.
+/app.py
+/vector_db.py
+/templates/
+/db_chroma/
 
 # --- Large local media not tracked in demo/ ---
-pawgpt_recording.mp4
+/pawgpt_recording.mp4
 
 # --- OS / editor cruft ---
 .DS_Store
