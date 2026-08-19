@@ -346,7 +346,7 @@ def build_llm(model=DEFAULT_MODEL, temperature=0, max_tokens=ANSWER_MAX_TOKENS,
 
     if not os.environ.get("GROQ_API_KEY"):
         raise RuntimeError(
-            "GROQ_API_KEY is not set. Copy .env.example to .env and fill it in."
+            "GROQ_API_KEY is not set. Put it in .env or export it in your shell."
         )
     # reasoning_effort has to be an explicit argument - ChatGroq rejects it inside
     # model_kwargs - and is only meaningful for the reasoning models.

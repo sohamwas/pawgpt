@@ -3,7 +3,7 @@
 #
 # The deployed API does NOT install this. It uses requirements-api.txt, which omits
 # the embedding stack: sentence-transformers pulls in torch at ~1.25 GB on disk and
-# 395 MB resident, which does not fit a 512 MB free instance. See DEPLOYMENT.md.
+# 395 MB resident, which does not fit a 512 MB free instance.
 #
 # Pinned together with pip on Python 3.13. To refresh:
 #     pip install --dry-run --report - <unpinned names>

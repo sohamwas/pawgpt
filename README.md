@@ -88,15 +88,14 @@ filtering · **BM25** for prose search.
 
 Both halves run on free tiers. The deployed service holds **145 MB** resident
 because it uses BM25 rather than embeddings — sentence-transformers would drag in
-torch at 395 MB and blow a 512 MB cap. The trade is measured, not assumed, in
-[DEPLOYMENT.md](DEPLOYMENT.md).
+torch at 395 MB and blow a 512 MB cap. The trade is measured, not assumed.
 
 ## Running it
 
 ```bash
 # 1. Backend
 pip install -r requirements.txt
-cp .env.example .env              # add your Groq key
+echo GROQ_API_KEY=your-key > .env  # from console.groq.com
 python scripts/dedup_prose.py     # strip boilerplate
 python scripts/build_index.py     # build the index (a few minutes, CPU)
 uvicorn api.main:app --port 8000
@@ -110,9 +109,6 @@ npm run dev                       # http://localhost:3000
 ```bash
 pytest -q                         # 95 tests, no API key, no network
 ```
-
-Deployment instructions, including the free-tier gotchas, are in
-[DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Known limits
 
