@@ -58,8 +58,8 @@ export default function Page() {
      left the status pinned to an error that nothing could clear but a reload, which
      is what "please try again shortly" meant in practice: nothing tried again.
 
-     So poll, backing off, and keep the status honest about which state it is in -
-     waking, up, or actually down. Re-probing when the tab becomes visible covers
+     So poll, backing off, and let the status stay on "connecting…" until either the
+     service answers or the retries run out. Re-probing when the tab becomes visible covers
      the other half of the problem: a tab left open long enough for the instance to
      fall asleep again underneath it. */
   useEffect(() => {
@@ -164,14 +164,19 @@ export default function Page() {
   // Deliberately no chunk counts or model names: those are implementation details
   // that mean nothing to the person asking, and reading them as status noise makes
   // the product feel like a demo. Breed count is the one number worth showing.
-  const statusDot = !health || probing ? "wait" : health.ok ? "up" : "down";
-  const statusText = !health
-    ? "connecting…"
-    : health.ok
-      ? `${health.breeds} breeds ready`
-      : probing
-        ? "waking the server, this can take up to a minute…"
-        : "Service unavailable, please try again shortly.";
+  // A failing probe that we are still retrying reads as "connecting…", not as its
+  // own announced state: a cold start is the normal path here, not an incident, and
+  // narrating it just moves the noise rather than removing it. The error text is
+  // reached only once the retries are spent and the backend really is down.
+  //
+  // Checking ok before probing matters for the re-probe on tab focus, which would
+  // otherwise flick an already-healthy status back to "connecting…".
+  const statusDot = health?.ok ? "up" : probing || !health ? "wait" : "down";
+  const statusText = health?.ok
+    ? `${health.breeds} breeds ready`
+    : probing || !health
+      ? "connecting…"
+      : "Service unavailable, please try again shortly.";
 
   return (
     <>
