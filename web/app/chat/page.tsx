@@ -40,15 +40,68 @@ const EXAMPLES = [
   },
 ];
 
+/* Roughly a minute and a half of probing. Long enough to cover a free-tier cold
+   start, short enough that a genuinely dead backend still reports as dead rather
+   than spinning forever. */
+const MAX_HEALTH_ATTEMPTS = 12;
+
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
+  const [probing, setProbing] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  /* The API sleeps after 15 minutes idle on Render's free tier and takes 40 to 60
+     seconds to wake, so the first probe on a cold load usually fails. Checking once
+     left the status pinned to an error that nothing could clear but a reload, which
+     is what "please try again shortly" meant in practice: nothing tried again.
+
+     So poll, backing off, and keep the status honest about which state it is in -
+     waking, up, or actually down. Re-probing when the tab becomes visible covers
+     the other half of the problem: a tab left open long enough for the instance to
+     fall asleep again underneath it. */
   useEffect(() => {
-    getHealth().then(setHealth);
+    let cancelled = false;
+    let generation = 0;
+    let timer: ReturnType<typeof setTimeout>;
+
+    async function probe(attempt: number, gen: number) {
+      const result = await getHealth();
+      // A probe that lost its race - unmounted, or superseded by a restart - must
+      // not write stale state over a newer result.
+      if (cancelled || gen !== generation) return;
+
+      setHealth(result);
+
+      if (result.ok || attempt >= MAX_HEALTH_ATTEMPTS) {
+        setProbing(false);
+        return;
+      }
+
+      timer = setTimeout(
+        () => probe(attempt + 1, gen),
+        Math.min(1000 * 2 ** attempt, 8000),
+      );
+    }
+
+    function restart() {
+      if (document.visibilityState !== "visible") return;
+      generation += 1;
+      clearTimeout(timer);
+      setProbing(true);
+      probe(0, generation);
+    }
+
+    probe(0, generation);
+    document.addEventListener("visibilitychange", restart);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", restart);
+    };
   }, []);
 
   useEffect(() => {
@@ -111,12 +164,14 @@ export default function Page() {
   // Deliberately no chunk counts or model names: those are implementation details
   // that mean nothing to the person asking, and reading them as status noise makes
   // the product feel like a demo. Breed count is the one number worth showing.
-  const statusDot = !health ? "wait" : health.ok ? "up" : "down";
+  const statusDot = !health || probing ? "wait" : health.ok ? "up" : "down";
   const statusText = !health
     ? "connecting…"
     : health.ok
       ? `${health.breeds} breeds ready`
-      : "Service unavailable, please try again shortly.";
+      : probing
+        ? "waking the server, this can take up to a minute…"
+        : "Service unavailable, please try again shortly.";
 
   return (
     <>
