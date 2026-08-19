@@ -26,6 +26,30 @@ env/
 # --- Large local media not tracked in demo/ ---
 /pawgpt_recording.mp4
 
+# --- Private working notes, kept on disk but out of the repo ---
+# Note-taking and interview preparation. README.md and DEPLOYMENT.md are the only
+# markdown the repo carries: one explains the project, the other is needed to
+# deploy it.
+/INTERVIEW_NOTES.md
+/ENGINEERING_NOTES.md
+/NOTES.md
+/SCRATCH.md
+/TODO.md
+
+# --- Derived retrieval artifacts ---
+# These ARE committed, deliberately, despite being generated files.
+#
+# The usual argument against is that they duplicate a source. The argument for is
+# deployment: building the index means embedding 4,801 chunks on CPU, which took
+# over ten minutes locally. Paying that inside a build timeout on every deploy, for
+# a byte-identical result, is worse than carrying 12 MB in the repo.
+#
+# Regenerate with `python scripts/dedup_prose.py && python scripts/build_index.py`
+# whenever the dataset, the chunking settings or the embedding model change, and
+# commit the result alongside that change.
+#   scripts/dedup_prose.py  -> data/breed_prose.json   (4.0 MB)
+#   scripts/build_index.py  -> data/breed_index.npz    (7.9 MB)
+
 # --- OS / editor cruft ---
 .DS_Store
 Thumbs.db

@@ -1,18 +1,30 @@
-# Pinned for reproducible installs.
-# Resolved together with pip on Python 3.13 (2026-08-17); also valid for Python 3.9+.
-# To refresh: pip install --dry-run --report - <unpinned names>
+# Developer dependencies: everything needed to rebuild the retrieval artifacts
+# and run the full test suite.
 #
-# Note: the top-level `langchain` meta-package was removed - nothing here
-# imports it. langchain-community was dropped too: it is being sunset upstream,
-# and its only use was HuggingFaceEmbeddings, now imported from the maintained
-# standalone langchain-huggingface package.
+# The deployed API does NOT install this. It uses requirements-api.txt, which omits
+# the embedding stack: sentence-transformers pulls in torch at ~1.25 GB on disk and
+# 395 MB resident, which does not fit a 512 MB free instance. See DEPLOYMENT.md.
+#
+# Pinned together with pip on Python 3.13. To refresh:
+#     pip install --dry-run --report - <unpinned names>
 
-streamlit==1.61.1
-pinecone==9.1.0
-langchain-huggingface==1.2.2
+# --- API and retrieval (also in requirements-api.txt) ---
+fastapi==0.141.1
+uvicorn==0.35.0
+pandas==3.0.5
+numpy==2.3.2
 langchain-groq==1.1.3
-langchain-text-splitters==1.1.2
+python-dotenv==1.2.3
+
+# --- Building the index only ---
+# Used by scripts/dedup_prose.py and scripts/build_index.py, and by the optional
+# dense retrieval backend (RETRIEVAL_BACKEND=dense).
 sentence-transformers==5.7.0
 transformers==5.15.0
-pandas==3.0.5
-python-dotenv==1.2.3
+langchain-text-splitters==1.1.2
+
+# --- Tests ---
+# The retrieval core is deterministic, so it is verified offline: no API key,
+# no network.
+pytest==9.1.1
+httpx==0.28.1

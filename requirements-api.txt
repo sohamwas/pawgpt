@@ -1,0 +1,20 @@
+# Runtime dependencies for the deployed API. Install this on the server, not
+# requirements.txt.
+#
+# The difference is torch. `sentence-transformers` pulls it in at ~1.25 GB on disk
+# and 395 MB resident, which puts the service at 615 MB against a 512 MB free-tier
+# ceiling. Nothing here needs it, because the default retriever is BM25 and the
+# committed index is read for its text rather than its vectors: measured 145 MB
+# resident, 367 MB of headroom.
+#
+# The embedding stack is only needed to *rebuild* the index, which happens on a
+# developer machine and is committed. Use requirements.txt for that.
+#
+# Set RETRIEVAL_BACKEND=dense only if you have installed requirements.txt instead.
+
+fastapi==0.141.1
+uvicorn==0.35.0
+pandas==3.0.5
+numpy==2.3.2
+langchain-groq==1.1.3
+python-dotenv==1.2.3

@@ -1,0 +1,37 @@
+# Render blueprint for the PawGPT API.
+#
+# The frontend is NOT here. It deploys to Vercel from web/. The split exists because
+# the Python service cannot run on Vercel: even slimmed, pandas and its dependencies
+# sit near Vercel's 250 MB function limit, and a question takes 10-30 seconds, which
+# is past the serverless execution window on the free plan. Render runs it as an
+# ordinary long-lived process instead.
+#
+# This fits the FREE instance (512 MB): measured 145 MB resident, because the
+# default retriever is BM25 and nothing here imports torch. Installing
+# requirements.txt instead would pull in sentence-transformers, take the service to
+# 615 MB, and be killed.
+services:
+  - type: web
+    name: pawgpt-api
+    runtime: python
+    plan: free
+    # requirements-api.txt, not requirements.txt. The retrieval artifacts are
+    # committed, so no index is built here and the embedding stack is not needed.
+    buildCommand: pip install -r requirements-api.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false          # set in the Render dashboard, never committed
+      - key: ALLOWED_ORIGINS
+        sync: false          # the deployed Vercel URL, exactly, with no trailing slash
+      # BM25. The dense path needs torch, which does not fit the free instance.
+      - key: RETRIEVAL_BACKEND
+        value: lexical
+      # Render terminates TLS at a proxy, so every request arrives from the proxy's
+      # address. Without this the rate limiter sees one client and a single visitor's
+      # burst locks out everybody; with it, the limiter reads X-Forwarded-For.
+      - key: TRUST_PROXY
+        value: "true"
+      - key: PYTHON_VERSION
+        value: "3.13"

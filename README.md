@@ -1,208 +1,131 @@
-# 🐾 PawGPT - Your AI Dog Breed Assistant
-![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)
-![Framework](https://img.shields.io/badge/Framework-Streamlit-red.svg)
-![LangChain](https://img.shields.io/badge/LangChain-RAG-purple.svg)
-![LLM](https://img.shields.io/badge/LLM-Groq%20(Llama%203.1)-green.svg)
-![VectorDB](https://img.shields.io/badge/VectorDB-Pinecone-orange.svg)
-![Embeddings](https://img.shields.io/badge/Embeddings-MiniLM-informational.svg)
+# 🐾 PawGPT
 
+**Find the dog that fits your actual life.**
 
-![PawGPT Application Demo](demo/pawgpt_image.png)
+Ask in plain English, get breeds that genuinely match, with the numbers behind every
+recommendation.
 
-PawGPT is an intelligent web application designed to help users find the perfect dog breed based on their lifestyle and preferences. It uses a **Retrieval-Augmented Generation (RAG)** pipeline to provide smart, context-aware recommendations from natural language questions.
-
----
-
-## ✨ Features
-
--   **Natural Language Queries**: Ask complex questions like, "What's a good, low-energy dog for a small apartment that doesn't bark a lot?"
--   **Intelligent Retrieval**: Uses semantic search with a Pinecone vector database to find the most relevant dog breeds from a comprehensive knowledge base.
--   **AI-Generated Answers**: Leverages a Large Language Model (Llama 3.1) via the high-speed Groq API for fast, human-like responses.
--   **Simple Web Interface**: Built with Streamlit for a clean and responsive user experience.
--   **Cloud-Hosted Vector Database**: Uses Pinecone for scalable, serverless vector storage and retrieval.
--   **Chat History**: Download your conversation history for future reference.
-
-https://github.com/user-attachments/assets/b0a01fa5-fde1-4a34-b913-5f552ed38f76
+![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
+![Next.js](https://img.shields.io/badge/frontend-Next.js%2015-black.svg)
+![FastAPI](https://img.shields.io/badge/api-FastAPI-009485.svg)
+![Groq](https://img.shields.io/badge/LLM-Groq-f55036.svg)
+![Tests](https://img.shields.io/badge/tests-95%20offline-brightgreen.svg)
 
 ---
 
-## 🛠️ Technology Stack
+## The problem this solves
 
--   **Frontend & Backend**: Streamlit
--   **AI/ML Framework**: LangChain
--   **LLM Provider**: Groq API (Llama 3.1 8B Instant)
--   **Embedding Model**: `all-MiniLM-L6-v2` (HuggingFace)
--   **Vector Database**: Pinecone (Cloud-hosted)
--   **Data Manipulation**: Pandas
+PawGPT began as a textbook RAG pipeline: embed the question, take the eight nearest
+text chunks, generate an answer. It had a flaw that no amount of prompt tuning fixes.
 
----
+The dataset has 41 columns. **About 30 of them are structured** — measured 1–5
+ratings for shedding, barking, apartment suitability, tolerance of being alone, and
+two dozen more. Only one column is prose.
 
-## 📂 Project Structure
+But the questions people actually ask look like this:
 
-The repository is organized to separate data preparation scripts from the main application logic.
+> *"I live in a small flat and work nine hours a day. I need a dog that won't bark
+> much and can cope with being alone."*
 
-```plaintext
-pawgpt/
-│
-├── README.md                  # Project overview and usage instructions
-├── ENGINEERING_NOTES.md       # Problems found in this project and how they were fixed
-├── LICENSE                    # MIT license
-├── requirements.txt           # Pinned Python dependencies
-├── .gitignore                 # Keeps secrets and local artifacts out of git
-├── .env.example               # Template for API keys (copy to .env)
-├── streamlit_app.py           # Main Streamlit application file
-│
-├── .devcontainer/
-│   └── devcontainer.json      # GitHub Codespaces / VS Code dev container
-│
-├── data/
-│   └── dogs_final_for_rag.csv # Final, enriched dataset used for RAG
-│
-├── demo/
-│   ├── pawgpt_image.png       # Demo image of the application
-│   └── pawgpt_recording.mov   # Demo video of the application
-│
-└── scripts/
-    └── pinecone_db.py         # Script to upload vectors to Pinecone (one-time setup)
+That is three numeric constraints and a sort. **Semantic similarity cannot express
+it.** Vector search has no way to do "at most 2", to rank, to count, or to say
+"nothing matches". The old pipeline discarded 27 of the 30 structured columns at
+ingest and did fuzzy text matching on the rest.
+
+## What it does instead
+
+The model chooses how to retrieve, and can retrieve more than once.
+
+| Tool | Used for | Example |
+|---|---|---|
+| `filter_breeds` | measurable requirements | quiet, small, tolerates being alone |
+| `get_breed_profile` | a named breed, or survivors of a filter | "tell me about the Basenji" |
+| `search_breed_text` | topics with no column at all | hip dysplasia, hypoallergenic, cats |
+
+A real trace:
+
+```
+"small flat, out nine hours, mustn't bark much"
+  → filter_breeds(max_barking=2, min_alone=4, min_apartment=4)
+      1 exact match: Basenji
+      2 near matches: Azawakh (misses alone), Chow Chow (misses apartment)
+  → get_breed_profile([Basenji, Azawakh, Chow Chow])
+  → answer, with every rating quoted from the dataset
 ```
 
----
+Three constraints narrowed 391 breeds to the one famously barkless breed. No
+embedding could have done that.
 
-## 🚀 Getting Started
+## Why the answers are trustworthy
 
-Follow these instructions to set up and run the project locally.
+- **Numbers come from pandas, never the model.** The dataframe produces the
+  candidate set and every figure quoted. The model writes prose about a set it was
+  handed, so a hallucinated rating is structurally impossible rather than unlikely.
+- **It admits when nothing fits.** If no breed meets every requirement, it loosens
+  the most selective one, says which, and shows the near misses. No silent
+  "no results found".
+- **Everything is inspectable.** Open the retrieval trace under any answer to see
+  the tools called, the arguments used, and the passages retrieved.
 
-### 1. Prerequisites
+## What was fixed along the way
 
--   Python 3.9 or higher
--   Git
--   A Groq API key ([Get one here](https://console.groq.com/keys))
--   A Pinecone API key ([Get one here](https://www.pinecone.io/))
+Each of these was found by measuring, and the numbers are real:
 
-> **Windows users:** `sentence-transformers` installs PyTorch, whose bundled CUDA
-> headers sit very close to the legacy 260-character `MAX_PATH` limit. Create your
-> virtual environment *inside* the project folder (`.venv`, already gitignored)
-> rather than in a deeply nested directory, or `pip install` may fail with
-> `OSError: [Errno 2] No such file or directory: ...predicated_tile_access_iterator_residual_last.h`.
-> Enabling long paths avoids the problem entirely — in an **admin** PowerShell:
-> `Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" LongPathsEnabled 1`
-> (requires a reboot).
+| | |
+|---|---|
+| **82% of the corpus was boilerplate** | The same breeder advice repeated across all 391 breeds, crowding out real content. Removing it cut 25,134 chunks to **4,801** and lifted retrieval scores from 0.531 to **0.759** |
+| **Embeddings saw 2% of each document** | MiniLM truncates at 256 tokens; documents were ~12,660. Fixed with token-aware chunking |
+| **The model never read what search matched** | The prompt was built from a stringified metadata dict, not the retrieved prose |
+| **A single question exceeded the rate limit** | ~9,200 tokens against an 8,000/min ceiling, which is why answers crawled. Split across two models, since the limit is metered per model |
+| **The writer returned empty answers** | A reasoning model spending its whole output budget thinking. Diagnosed to one parameter |
+| **The deployed model had been retired** | `llama-3.1-8b-instant` now 404s on Groq |
 
-### 2. Setup and Installation
+## Stack
 
-**Step A: Clone the Repository**
-Open your terminal and clone this repository to your local machine.
+**Next.js 15** frontend on Vercel · **FastAPI** on Render · **Groq** for inference
+(`gpt-oss-120b` chooses tools, `gpt-oss-20b` writes) · **pandas** for structured
+filtering · **BM25** for prose search.
+
+Both halves run on free tiers. The deployed service holds **145 MB** resident
+because it uses BM25 rather than embeddings — sentence-transformers would drag in
+torch at 395 MB and blow a 512 MB cap. The trade is measured, not assumed, in
+[DEPLOYMENT.md](DEPLOYMENT.md).
+
+## Running it
 
 ```bash
-git clone https://github.com/sohamwas/pawgpt.git
-cd pawgpt
-```
-
-**Step B: Install Dependencies**
-Install all the required Python packages using the `requirements.txt` file. A virtual
-environment is recommended, since `sentence-transformers` pulls in PyTorch.
-```bash
-python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
+# 1. Backend
 pip install -r requirements.txt
+cp .env.example .env              # add your Groq key
+python scripts/dedup_prose.py     # strip boilerplate
+python scripts/build_index.py     # build the index (a few minutes, CPU)
+uvicorn api.main:app --port 8000
+
+# 2. Frontend, in another terminal
+cd web && npm install
+cp .env.local.example .env.local
+npm run dev                       # http://localhost:3000
 ```
 
-**Step C: Configure Your API Keys**
-Copy the template and fill in your own keys:
 ```bash
-cp .env.example .env
-```
-```ini
-PINECONE_API_KEY=your-pinecone-api-key
-GROQ_API_KEY=your-groq-api-key
-```
-`.env` is gitignored — never commit it. Both the app and the population script load
-it from the repo root, so they work from any working directory.
-
-When deploying, don't ship the `.env` file: set `PINECONE_API_KEY` and
-`GROQ_API_KEY` as environment variables in your host's dashboard. Real environment
-variables take precedence over `.env`.
-
-### 3. How to Run the Application
-
-The application requires a one-time setup to populate the Pinecone vector database, followed by running the Streamlit app.
-
-**Step A: Populate Pinecone Vector Database (One-Time Only)**
-Run the script to upload your dog breed embeddings to Pinecone. It picks up
-`PINECONE_API_KEY` from the `.env` you created in Step C:
-```bash
-python scripts/pinecone_db.py
+pytest -q                         # 95 tests, no API key, no network
 ```
 
-This creates a serverless index called `pawgpt` (384 dimensions, cosine metric, AWS
-`us-east-1`) in your Pinecone account. Each breed description is split into ~220-token
-chunks, so 391 breeds produce roughly **27,000 vectors**. Expect this to take a while —
-the embedding model runs on CPU.
+Deployment instructions, including the free-tier gotchas, are in
+[DEPLOYMENT.md](DEPLOYMENT.md).
 
-Re-run this script whenever the dataset or the chunking settings change; it clears the
-index first, so it is safe to run repeatedly.
+## Known limits
 
-**Step B: Start the Streamlit Application**
-Now, run the main Streamlit application.
-```bash
-streamlit run streamlit_app.py
-```
+- **No quality evaluation yet.** Routing correctness is measured over a handful of
+  questions. That is a smoke test, not a benchmark, and it is the next thing to
+  build — the structured columns make ground truth computable without labelling.
+- **Answers take 10–45 seconds** on Groq's free tier, mostly queueing. A paid tier
+  removes it with no code change.
+- **Render's free instance sleeps** after 15 minutes, so the first visitor after a
+  quiet spell waits for a cold start.
+- **Ratings are subjective judgements** from a single scraped source, presented as
+  integers. They are a starting point, not veterinary advice.
 
-Your terminal should display a message with a local URL, usually `http://localhost:8501`.
+## License
 
-**Step C: Use the App!**
-The application will automatically open in your default web browser. You can now start asking questions about dog breeds!
-
----
-
-## 🌐 Deployment
-
-This app is deployed on **Streamlit Community Cloud**. To deploy your own version:
-
-1. Push your code to a GitHub repository. `.env` is gitignored, so your keys stay local.
-2. Go to [Streamlit Community Cloud](https://streamlit.io/cloud).
-3. Connect your GitHub repository.
-4. Add `PINECONE_API_KEY` and `GROQ_API_KEY` under Settings → Secrets.
-5. Deploy!
-
-The same two environment variables are all that's needed on any other host
-(Render, Fly, Railway, a container, etc.) — set them in the platform's
-environment/secrets panel rather than uploading a `.env` file.
-
----
-
-## 💡 Limitations
-
-- The web application UI can be further improved with more responsive design and custom styling.
-- Retrieval quality is bounded by `all-MiniLM-L6-v2`, a small, fast embedding model. A larger model would rank passages better at the cost of slower indexing.
-- Much of each breed's description is generic advice shared across breeds (health screening, choosing a breeder). Those chunks can surface for questions where a breed-specific passage would be more useful. Filtering boilerplate at ingest time would sharpen results.
-- `langchain-community` is **being sunset** upstream and is no longer actively maintained, and `HuggingFaceEmbeddings` within it is deprecated in favour of the standalone `langchain-huggingface` package. Both still work on the pinned versions — the library emits warnings but functions correctly — so this is not urgent, but it is the next dependency change worth making.
-
-Two earlier limitations — embedding truncation and the retrieved context excluding the
-embedded text — have been fixed. See [ENGINEERING_NOTES.md](ENGINEERING_NOTES.md) for the
-full write-up.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! If you have suggestions for improvements or find any issues, please feel free to open an issue or submit a pull request.
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- **Groq** for providing fast LLM inference
-- **Pinecone** for scalable vector database infrastructure
-- **LangChain** for RAG framework
-- **Streamlit** for the easy-to-use web framework
-
-
-
-
+MIT. See [LICENSE](LICENSE).
